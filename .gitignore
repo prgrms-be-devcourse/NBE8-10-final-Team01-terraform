@@ -1,0 +1,25 @@
+# Terraform 실행 파일 (terraform init으로 재생성 가능)
+.terraform/
+.terraform
+.terraform.lock.hcl
+.terraform.tfstate.lock.info
+.idea
+
+# 인프라 상태 파일 (보안상 절대 커밋 금지 - EC2 IP, 리소스 ID 포함)
+*.tfstate
+*.tfstate.backup
+
+# Terraform 크래시 로그
+crash.log
+crash.*.log
+
+# 민감 정보가 포함될 수 있는 변수 파일
+# (dev.tfvars는 민감정보 없으므로 커밋 OK)
+terraform.tfvars
+*.auto.tfvars
+
+# 나중에 다른 레포로 이전 시 backend.tf 추가 예정
+# backend.tf
+
+secrets.tf
+*.tfvars
