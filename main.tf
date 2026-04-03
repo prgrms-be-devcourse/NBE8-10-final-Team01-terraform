@@ -1,20 +1,15 @@
 # ============================================================
-# Judge0 EC2 Terraform 설정
+# NBE8-10-Team01 인프라 메인 설정
 #
 # 사용법:
-#   export AWS_PROFILE=team (bash, 현재 터미널에서 기본 프로필을 team으로 잡기) (powershell: $env:AWS_PROFILE="team")
+#   export AWS_PROFILE=team
 #   terraform init
 #   terraform apply -var-file="dev.tfvars"
-#   (약 8~10분 후 Judge0 준비 완료)
-#
-#   terraform destroy -var-file=dev.tfvars
-#
-# apply 완료 후 출력되는 judge0_url을 application-dev.yml에 설정
+#   terraform destroy -var-file="dev.tfvars"
 # ============================================================
 
 terraform {
   required_version = ">= 1.5"
-
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -27,7 +22,16 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Ubuntu 22.04 LTS 최신 AMI 자동 조회
+# ─────────────────────────────────────
+# AMI 데이터 소스
+# ─────────────────────────────────────
+
+# Amazon Linux 2023 (Nginx, App Blue/Green, Monitoring EC2용)
+data "aws_ssm_parameter" "amazon_linux_ami" {
+  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+}
+
+# Ubuntu 22.04 LTS (Judge0 전용 - cgroup v1 필요)
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"] # Canonical
@@ -43,30 +47,134 @@ data "aws_ami" "ubuntu" {
   }
 }
 
-# Security Group
-resource "aws_security_group" "judge0" {
-  name        = "${var.project_name}-judge0-sg"
-  description = "Judge0 server access"
+# ─────────────────────────────────────
+# VPC
+# ─────────────────────────────────────
+resource "aws_vpc" "main" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
 
-  # Judge0 API
-  ingress {
-    description = "Judge0 API"
-    from_port   = 2358
-    to_port     = 2358
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_cidr_blocks
+  tags = {
+    Name    = "${var.project_name}-vpc"
+    Project = var.project_name
+  }
+}
+
+# ─────────────────────────────────────
+# 서브넷 (4개 AZ)
+# ─────────────────────────────────────
+resource "aws_subnet" "subnet_1" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.0.0/24"
+  availability_zone       = "${var.aws_region}a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name    = "${var.project_name}-subnet-1"
+    Project = var.project_name
+  }
+}
+
+resource "aws_subnet" "subnet_2" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "${var.aws_region}b"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name    = "${var.project_name}-subnet-2"
+    Project = var.project_name
+  }
+}
+
+resource "aws_subnet" "subnet_3" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "${var.aws_region}c"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name    = "${var.project_name}-subnet-3"
+    Project = var.project_name
+  }
+}
+
+resource "aws_subnet" "subnet_4" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.3.0/24"
+  availability_zone       = "${var.aws_region}d"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name    = "${var.project_name}-subnet-4"
+    Project = var.project_name
+  }
+}
+
+# ─────────────────────────────────────
+# 인터넷 게이트웨이 & 라우팅
+# ─────────────────────────────────────
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name    = "${var.project_name}-igw"
+    Project = var.project_name
+  }
+}
+
+resource "aws_route_table" "rt" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.igw.id
   }
 
-  # SSH (디버깅용)
+  tags = {
+    Name    = "${var.project_name}-rt"
+    Project = var.project_name
+  }
+}
+
+resource "aws_route_table_association" "assoc_1" {
+  subnet_id      = aws_subnet.subnet_1.id
+  route_table_id = aws_route_table.rt.id
+}
+
+resource "aws_route_table_association" "assoc_2" {
+  subnet_id      = aws_subnet.subnet_2.id
+  route_table_id = aws_route_table.rt.id
+}
+
+resource "aws_route_table_association" "assoc_3" {
+  subnet_id      = aws_subnet.subnet_3.id
+  route_table_id = aws_route_table.rt.id
+}
+
+resource "aws_route_table_association" "assoc_4" {
+  subnet_id      = aws_subnet.subnet_4.id
+  route_table_id = aws_route_table.rt.id
+}
+
+# ─────────────────────────────────────
+# 보안 그룹
+# ─────────────────────────────────────
+
+# EC2 공통 SG (강사 베이스 패턴 - 전체 허용)
+resource "aws_security_group" "ec2_common" {
+  name        = "${var.project_name}-ec2-sg"
+  description = "EC2 common - all traffic allowed"
+  vpc_id      = aws_vpc.main.id
+
   ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_cidr_blocks
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Docker pull, apt-get 등 외부 통신
   egress {
     from_port   = 0
     to_port     = 0
@@ -75,44 +183,96 @@ resource "aws_security_group" "judge0" {
   }
 
   tags = {
-    Name    = "${var.project_name}-judge0-sg"
+    Name    = "${var.project_name}-ec2-sg"
     Project = var.project_name
   }
 }
 
-# EC2 인스턴스
-resource "aws_instance" "judge0" {
-  ami                    = data.aws_ami.ubuntu.id
-  instance_type          = var.instance_type
-  key_name               = var.key_pair_name
-  vpc_security_group_ids = [aws_security_group.judge0.id]
+# RDS SG (VPC 내부에서만 5432 접근)
+resource "aws_security_group" "rds" {
+  name        = "${var.project_name}-rds-sg"
+  description = "RDS PostgreSQL - VPC only"
+  vpc_id      = aws_vpc.main.id
 
-  user_data = templatefile("${path.module}/user_data.sh", {
-    count_of_workers  = var.count_of_workers
-    postgres_password = var.postgres_password
-    memory_limit      = var.memory_limit
-    cpu_time_limit    = var.cpu_time_limit
+  ingress {
+    description = "PostgreSQL from VPC"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name    = "${var.project_name}-rds-sg"
+    Project = var.project_name
+  }
+}
+
+# ElastiCache SG (VPC 내부에서만 6379 접근)
+resource "aws_security_group" "elasticache" {
+  name        = "${var.project_name}-elasticache-sg"
+  description = "ElastiCache Redis - VPC only"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    description = "Redis from VPC"
+    from_port   = 6379
+    to_port     = 6379
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name    = "${var.project_name}-elasticache-sg"
+    Project = var.project_name
+  }
+}
+
+# ─────────────────────────────────────
+# IAM (모든 EC2 공통)
+# ─────────────────────────────────────
+resource "aws_iam_role" "ec2_role" {
+  name = "${var.project_name}-ec2-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+        Effect = "Allow"
+      }
+    ]
   })
-
-  root_block_device {
-    volume_size           = 20  # Judge0 이미지 + 실행 데이터
-    volume_type           = "gp3"
-    delete_on_termination = true
-  }
-
-  tags = {
-    Name    = "${var.project_name}-judge0"
-    Project = var.project_name
-  }
 }
 
-# Elastic IP: destroy/apply 해도 IP 고정
-resource "aws_eip" "judge0" {
-  instance = aws_instance.judge0.id
-  domain   = "vpc"
+resource "aws_iam_role_policy_attachment" "s3_full_access" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+}
 
-  tags = {
-    Name    = "${var.project_name}-judge0-eip"
-    Project = var.project_name
-  }
+resource "aws_iam_role_policy_attachment" "ssm" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "ec2_profile" {
+  name = "${var.project_name}-ec2-profile"
+  role = aws_iam_role.ec2_role.name
 }
