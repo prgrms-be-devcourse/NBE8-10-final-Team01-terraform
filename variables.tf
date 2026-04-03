@@ -10,7 +10,7 @@ variable "aws_region" {
 variable "project_name" {
   description = "프로젝트 이름 (리소스 이름/태그에 prefix로 사용)"
   type        = string
-  default     = "nbe8-10-team01"
+  default     = "devcos-team01-ec2"
 }
 
 variable "key_pair_name" {
@@ -58,15 +58,6 @@ variable "rds_password" {
   description = "RDS 마스터 계정 비밀번호"
   type        = string
   sensitive   = true
-}
-
-# ─────────────────────────────────────
-# 애플리케이션
-# ─────────────────────────────────────
-variable "app_port" {
-  description = "Spring Boot 앱 포트 (Prometheus 스크래이프 대상 포트)"
-  type        = number
-  default     = 8080
 }
 
 # ─────────────────────────────────────

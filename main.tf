@@ -26,12 +26,7 @@ provider "aws" {
 # AMI 데이터 소스
 # ─────────────────────────────────────
 
-# Amazon Linux 2023 (Nginx, App Blue/Green, Monitoring EC2용)
-data "aws_ssm_parameter" "amazon_linux_ami" {
-  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
-}
-
-# Ubuntu 22.04 LTS (Judge0 전용 - cgroup v1 필요)
+# Ubuntu 22.04 LTS (단일 EC2 - Judge0 cgroup v1 필요로 전체 Ubuntu 사용)
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"] # Canonical
@@ -58,6 +53,7 @@ resource "aws_vpc" "main" {
   tags = {
     Name    = "${var.project_name}-vpc"
     Project = var.project_name
+    Team    = "devcos-team1"
   }
 }
 
@@ -73,6 +69,7 @@ resource "aws_subnet" "subnet_1" {
   tags = {
     Name    = "${var.project_name}-subnet-1"
     Project = var.project_name
+    Team    = "devcos-team1"
   }
 }
 
@@ -85,6 +82,7 @@ resource "aws_subnet" "subnet_2" {
   tags = {
     Name    = "${var.project_name}-subnet-2"
     Project = var.project_name
+    Team    = "devcos-team1"
   }
 }
 
@@ -97,6 +95,7 @@ resource "aws_subnet" "subnet_3" {
   tags = {
     Name    = "${var.project_name}-subnet-3"
     Project = var.project_name
+    Team    = "devcos-team1"
   }
 }
 
@@ -109,6 +108,7 @@ resource "aws_subnet" "subnet_4" {
   tags = {
     Name    = "${var.project_name}-subnet-4"
     Project = var.project_name
+    Team    = "devcos-team1"
   }
 }
 
@@ -121,6 +121,7 @@ resource "aws_internet_gateway" "igw" {
   tags = {
     Name    = "${var.project_name}-igw"
     Project = var.project_name
+    Team    = "devcos-team1"
   }
 }
 
@@ -135,6 +136,7 @@ resource "aws_route_table" "rt" {
   tags = {
     Name    = "${var.project_name}-rt"
     Project = var.project_name
+    Team    = "devcos-team1"
   }
 }
 
@@ -185,6 +187,7 @@ resource "aws_security_group" "ec2_common" {
   tags = {
     Name    = "${var.project_name}-ec2-sg"
     Project = var.project_name
+    Team    = "devcos-team1"
   }
 }
 
@@ -212,6 +215,7 @@ resource "aws_security_group" "rds" {
   tags = {
     Name    = "${var.project_name}-rds-sg"
     Project = var.project_name
+    Team    = "devcos-team1"
   }
 }
 
@@ -239,6 +243,7 @@ resource "aws_security_group" "elasticache" {
   tags = {
     Name    = "${var.project_name}-elasticache-sg"
     Project = var.project_name
+    Team    = "devcos-team1"
   }
 }
 
@@ -247,6 +252,12 @@ resource "aws_security_group" "elasticache" {
 # ─────────────────────────────────────
 resource "aws_iam_role" "ec2_role" {
   name = "${var.project_name}-ec2-role"
+
+  tags = {
+    Name    = "${var.project_name}-ec2-role"
+    Project = var.project_name
+    Team    = "devcos-team1"
+  }
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -275,4 +286,10 @@ resource "aws_iam_role_policy_attachment" "ssm" {
 resource "aws_iam_instance_profile" "ec2_profile" {
   name = "${var.project_name}-ec2-profile"
   role = aws_iam_role.ec2_role.name
+
+  tags = {
+    Name    = "${var.project_name}-ec2-profile"
+    Project = var.project_name
+    Team    = "devcos-team1"
+  }
 }

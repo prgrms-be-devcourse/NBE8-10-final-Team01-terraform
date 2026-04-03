@@ -1,37 +1,37 @@
 # ─────────────────────────────────────
-# Nginx (외부 진입점)
+# EC2 접속 정보
 # ─────────────────────────────────────
-output "nginx_public_ip" {
-  description = "Nginx NPM Plus 고정 공인 IP → DNS A레코드 연결"
-  value       = aws_eip.nginx.public_ip
+output "public_ip" {
+  description = "EC2 고정 공인 IP (DNS A레코드 연결)"
+  value       = aws_eip.main.public_ip
 }
 
+output "ssh_command" {
+  description = "SSH 접속 명령어"
+  value       = var.key_pair_name != null ? "ssh -i ~/.ssh/${var.key_pair_name}.pem ubuntu@${aws_eip.main.public_ip}" : "SSH 접속하려면 dev.tfvars의 key_pair_name 설정 필요"
+}
+
+# ─────────────────────────────────────
+# 컨테이너 서비스 URL
+# ─────────────────────────────────────
 output "npm_admin_url" {
-  description = "NPM Plus 관리자 패널 URL (초기 계정: admin@npm.com / password_1)"
-  value       = "http://${aws_eip.nginx.public_ip}:81"
+  description = "NPM Plus 관리자 패널 (초기 계정: admin@npm.com / password_1)"
+  value       = "http://${aws_eip.main.public_ip}:81"
 }
 
-# ─────────────────────────────────────
-# App 서버 (Blue/Green)
-# ─────────────────────────────────────
-output "app_blue_private_ip" {
-  description = "Blue 서버 내부 IP (NPM Plus 업스트림 설정용)"
-  value       = aws_instance.app_blue.private_ip
+output "prometheus_url" {
+  description = "Prometheus URL"
+  value       = "http://${aws_eip.main.public_ip}:9090"
 }
 
-output "app_blue_public_ip" {
-  description = "Blue 서버 공인 IP (SSH 접속용)"
-  value       = aws_instance.app_blue.public_ip
+output "grafana_url" {
+  description = "Grafana URL (admin / password_1 변수로 로그인)"
+  value       = "http://${aws_eip.main.public_ip}:3000"
 }
 
-output "app_green_private_ip" {
-  description = "Green 서버 내부 IP (NPM Plus 업스트림 설정용)"
-  value       = aws_instance.app_green.private_ip
-}
-
-output "app_green_public_ip" {
-  description = "Green 서버 공인 IP (SSH 접속용)"
-  value       = aws_instance.app_green.public_ip
+output "judge0_url" {
+  description = "Judge0 API URL → application.yml judge0.url에 설정"
+  value       = "http://${aws_eip.main.public_ip}:2358"
 }
 
 # ─────────────────────────────────────
@@ -58,30 +58,4 @@ output "redis_endpoint" {
 output "redis_port" {
   description = "Redis 포트"
   value       = aws_elasticache_cluster.redis.port
-}
-
-# ─────────────────────────────────────
-# 모니터링
-# ─────────────────────────────────────
-output "prometheus_url" {
-  description = "Prometheus URL"
-  value       = "http://${aws_instance.monitoring.public_ip}:9090"
-}
-
-output "grafana_url" {
-  description = "Grafana URL (admin / password_1 변수로 로그인)"
-  value       = "http://${aws_instance.monitoring.public_ip}:3000"
-}
-
-# ─────────────────────────────────────
-# Judge0
-# ─────────────────────────────────────
-output "judge0_url" {
-  description = "Judge0 API URL → application.yml judge0.url에 설정"
-  value       = "http://${aws_eip.judge0.public_ip}:2358"
-}
-
-output "judge0_public_ip" {
-  description = "Judge0 EC2 고정 공인 IP"
-  value       = aws_eip.judge0.public_ip
 }

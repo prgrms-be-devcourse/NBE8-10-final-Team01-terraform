@@ -10,6 +10,7 @@ resource "aws_db_subnet_group" "main" {
   tags = {
     Name    = "${var.project_name}-db-subnet-group"
     Project = var.project_name
+    Team    = "devcos-team1"
   }
 }
 
@@ -41,5 +42,6 @@ resource "aws_db_instance" "main" {
   tags = {
     Name    = "${var.project_name}-rds"
     Project = var.project_name
+    Team    = "devcos-team1"
   }
 }

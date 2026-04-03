@@ -10,6 +10,7 @@ resource "aws_elasticache_subnet_group" "main" {
   tags = {
     Name    = "${var.project_name}-cache-subnet-group"
     Project = var.project_name
+    Team    = "devcos-team1"
   }
 }
 
@@ -29,5 +30,6 @@ resource "aws_elasticache_cluster" "redis" {
   tags = {
     Name    = "${var.project_name}-redis"
     Project = var.project_name
+    Team    = "devcos-team1"
   }
 }
