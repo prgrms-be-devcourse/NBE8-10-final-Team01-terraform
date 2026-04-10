@@ -103,7 +103,7 @@ echo '${var.github_access_token_1}' | docker login ghcr.io -u '${var.github_acce
 
 # ─────────────────────────────────────
 # Prometheus 설정 파일 생성
-# 앱 컨테이너와 같은 common 네트워크 → container name으로 scrape
+# 앱 컨테이너는 blue/green alias(app-blue, app-green) 기준으로 scrape
 # ─────────────────────────────────────
 mkdir -p /dockerProjects/prometheus/config
 
@@ -120,12 +120,16 @@ scrape_configs:
   - job_name: 'app-blue'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['app_blue:8080']
+      - targets: ['app-blue:8080']
 
   - job_name: 'app-green'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['app_green:8080']
+      - targets: ['app-green:8080']
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node_exporter:9100']
 PROMEOF
 
 # ─────────────────────────────────────
@@ -133,6 +137,8 @@ PROMEOF
 # ─────────────────────────────────────
 mkdir -p /dockerProjects/grafana/provisioning/datasources
 mkdir -p /dockerProjects/grafana/volumes/data
+chown -R 472:472 /dockerProjects/grafana/volumes/data
+chmod -R u+rwX /dockerProjects/grafana/volumes/data
 
 cat > /dockerProjects/grafana/provisioning/datasources/prometheus.yml << 'GRAFEOF'
 apiVersion: 1
@@ -156,6 +162,19 @@ docker run -d \
   -e TZ=Asia/Seoul \
   -v /dockerProjects/prometheus/config:/etc/prometheus \
   prom/prometheus:latest
+
+# ─────────────────────────────────────
+# Node Exporter 컨테이너 실행
+# ─────────────────────────────────────
+docker run -d \
+  --name node_exporter \
+  --restart unless-stopped \
+  --network common \
+  -p 9100:9100 \
+  --pid=host \
+  -v "/:/host:ro,rslave" \
+  quay.io/prometheus/node-exporter:latest \
+  --path.rootfs=/host
 
 # ─────────────────────────────────────
 # Grafana 컨테이너 실행
